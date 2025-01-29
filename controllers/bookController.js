@@ -2,24 +2,25 @@ import connection from "../connection.js";
 import CustomError from "../classes/CustomError.js";
 
 function index(req, res) {
-    // Recupero tutti i libri e per ciascun libro il numero delle recensioni e la media voto totale:
-    const sql = `SELECT books.*, AVG(reviews.vote) AS vote_average, COUNT(reviews.text) AS commenti
-                FROM books
-                LEFT JOIN reviews 
-                ON reviews.book_id = books.id
-                GROUP BY books.id`;
-    // Uso il metodo query() per passargli la query SQL e una funzione di callback:
-    connection.query(sql, (err, results) => {
-        // Se rilevo un errore nella chiamata al database, restituisco l'errore HTTP 500 Internal Server Error” e un messaggio personalizzato:
+    const limit = 6;
+    const { page } = req.query;
+    const offset = limit * (page - 1);
+    const sqlCount = "SELECT COUNT(*) AS `count` FROM `books`";
+
+    connection.query(sqlCount, (err, results) => {
         if (err) res.status(500).json({ error: 'Errore del server' });
-        // console.log(results);
-        // Creo un oggetto contenente il conteggio totale dei libri e il risultato della query SQL:
-        const response = {
-            count: results.length,
-            items: results,
-        }
-        //Rispondo con l'oggetto JSON riempito con i data ricevuti dall'interrogazione fatta al database:
-        res.json(response);
+        const count = results[0].count;
+
+        const sql = "SELECT * FROM `books` LIMIT ? OFFSET ?";
+        connection.query(sql, [limit, offset], (err, results) => {
+            if (err) res.status(500).json({ error: 'Errore del server' });
+            const response = {
+                count,
+                limit,
+                items: results
+            }
+            res.json(response)
+        })
     });
 }
 
@@ -30,7 +31,7 @@ function show(req, res) {
                 FROM reviews
                 RIGHT JOIN books 
                 ON books.id = reviews.book_id
-                WHERE books.id = ?`;
+                WHERE books.id = ? `;
     // Uso il metodo query() per passargli la query SQL e una funzione di callback:
     connection.query(sql, [id], (err, results) => {
         // Se rilevo un errore nella chiamata al database, restituisco l'errore HTTP 500 Internal Server Error” e un messaggio personalizzato:
